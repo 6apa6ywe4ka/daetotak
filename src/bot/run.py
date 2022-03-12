@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 from time import sleep
 
-from src.config.config import TEXT_TO_REPLY, INTERVAL_TO_SEARCH_HOURS, INITIAL_TWEET
+from src.bot.utils import handle_printing_request_details
+from src.config.config import TEXT_TO_REPLY, INTERVAL_TO_SEARCH_HOURS, INITIAL_TWEET, SLOW_DOWN, DUPLICATE, \
+    WORKER_TIMEOUT, REST_START_TIMEOUT
 
 
 def run_bot(twitter):
@@ -24,42 +26,33 @@ def run_bot(twitter):
     messages = twitter.search_tweets(start_time=start_time, end_time=end_time)
     for message in messages:
         replied = twitter.reply(message)
-        if replied == "SLOW DOWN":
+        if replied == SLOW_DOWN:
             time_to_sleep = 1
-            while replied == "SLOW DOWN":
+            while replied == SLOW_DOWN:
                 print(f"Slowing down. Waiting for {time_to_sleep}")
                 sleep(time_to_sleep)
                 time_to_sleep *= 2
                 replied = twitter.reply(message)
-        if replied and replied != "SLOW DOWN":
-            print(f"Replied to @ {message['created_at']} id: {message['id']}: {TEXT_TO_REPLY}")
-        if not replied or replied == "SLOW DOWN":
-            print(f"Error replying @ {message['created_at']} id: {message['id']}: {TEXT_TO_REPLY}")
+        handle_printing_request_details(response=replied, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
 
         liked = twitter.like(message)
-        if liked == "SLOW DOWN":
-            time_to_sleep = 1
-            while liked == "SLOW DOWN":
+        if liked == SLOW_DOWN:
+            time_to_sleep = REST_START_TIMEOUT
+            while liked == SLOW_DOWN:
                 print(f"Slowing down. Waiting for {time_to_sleep}")
                 sleep(time_to_sleep)
                 time_to_sleep *= 2
                 liked = twitter.like(message)
-        if liked and liked != "SLOW DOWN":
-            print(f"Liked @ {message['created_at']} id: {message['id']}")
-        if not liked or liked == "SLOW DOWN":
-            print(f"Can't like @ {message['created_at']} id: {message['id']}: {TEXT_TO_REPLY}")
+        handle_printing_request_details(response=liked, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
 
         quoted = twitter.quote(message)
-        if quoted == "SLOW DOWN":
+        if quoted == SLOW_DOWN:
             time_to_sleep = 5
-            while quoted == "SLOW DOWN":
+            while quoted == SLOW_DOWN:
                 print(f"Slowing down. Waiting for {time_to_sleep}")
                 sleep(time_to_sleep)
                 time_to_sleep *= 2
                 quoted = twitter.quote(message)
-        if quoted and quoted != "SLOW DOWN":
-            print(f"Quoted @ {message['created_at']} id: {message['id']}: {TEXT_TO_REPLY}")
-        if not quoted or quoted == "SLOW DOWN":
-            print(f"Can't quote @ {message['created_at']} id: {message['id']}: {TEXT_TO_REPLY}")
+        handle_printing_request_details(response=quoted, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
 
-        sleep(5)
+        sleep(WORKER_TIMEOUT)
