@@ -1,22 +1,39 @@
-import sys
-from urllib.parse import urljoin
-
 API_KEY = ""
 API_SECRET_KEY = ""
 
 TEXT_TO_FIND = "русні пизда"
 TEXT_TO_REPLY = "да ето так"
 
-WORKER_TIMEOUT = 5
-REST_START_TIMEOUT = 5
+WORKER_TIMEOUT = 1
+REST_START_TIMEOUT = 2
 
-DAYS_TO_FIND = 120
-HOURS_TO_FIND = 3
+DAYS_BEFORE_NOW = 120
 INTERVAL_TO_SEARCH_HOURS = 24
-INITIAL_TWEET = {1: "Get by config",
-                 2: "Resume last session"}.get(2)
+INITIAL_TWEET_OPTIONS = {1: "Get by config",
+                         2: "Resume last session"}
+INITIAL_TWEET = INITIAL_TWEET_OPTIONS.get(1)
+WORK_MODES = {1: "History",
+              2: "Real-time"}
+WORK_MODE = WORK_MODES.get(2)
 DUPLICATE = "DUPLICATE"
 SLOW_DOWN = "SLOW_DOWN"
+
+LIKE_TIMEDELTA = 1
+QUOTE_TIMEDELTA = 1
+REPLY_TIMEDELTA = 1
+GLOBAL_RATE_LIMITTER = 60
+CHUNK = 10
+
+# Rate limits
+REPLY_AMOUNT_RATE = 300
+REPLY_TIME_FRAME = 3 * 60 * 60
+REPLY_SECONDS_TIMEOUT = REPLY_TIME_FRAME / REPLY_AMOUNT_RATE
+
+LIKE_AMOUNT_RATE = 1000
+LIKE_TIME_FRAME = 24 * 60 * 60
+LIKE_SECONDS_TIMEOUT = LIKE_TIME_FRAME / LIKE_AMOUNT_RATE
+
+REQUEST_QUEUE_SIZE = 49
 
 AUTH_CALLBACK_URL = "https://twitter.com"
 TWITTER_URL = "https://api.twitter.com"

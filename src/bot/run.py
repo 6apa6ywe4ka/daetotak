@@ -1,58 +1,103 @@
 from datetime import datetime, timedelta
-from time import sleep
 
-from src.bot.utils import handle_printing_request_details
-from src.config.config import TEXT_TO_REPLY, INTERVAL_TO_SEARCH_HOURS, INITIAL_TWEET, SLOW_DOWN, DUPLICATE, \
-    WORKER_TIMEOUT, REST_START_TIMEOUT
+from src.bot.utils import handle_printing_request_details, request_failed
+from src.config.config import TEXT_TO_REPLY, INTERVAL_TO_SEARCH_HOURS, INITIAL_TWEET, \
+    WORKER_TIMEOUT, DAYS_BEFORE_NOW, INITIAL_TWEET_OPTIONS, WORK_MODE, WORK_MODES
 
 
-def run_bot(twitter):
-    last_tweets = twitter.last_tweets()
-    start_time = None
-    end_time = None
-    if len(last_tweets) and INITIAL_TWEET == 2:
-        for tweet in last_tweets:
-            referenced_tweets = tweet.get("referenced_tweets", [])
-            if len(referenced_tweets):
-                last_tweet_id = referenced_tweets[0].get("id", None)
-                tweet_info = twitter.tweet(tweet_id=last_tweet_id)
-                start_time = tweet_info["created_at"]
-                end_time = (datetime.strptime(
-                    start_time, "%Y-%m-%dT%H:%M:%SZ") + timedelta(
-                    hours=INTERVAL_TO_SEARCH_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                break
-    elif INITIAL_TWEET == 1:
-        pass
-    messages = twitter.search_tweets(start_time=start_time, end_time=end_time)
+def init_bot(twitter):
+    if WORK_MODE == WORK_MODES.get(1):
+        if INITIAL_TWEET == INITIAL_TWEET_OPTIONS.get(2):
+            last_tweets = twitter.last_tweets()
+            for tweet in last_tweets:
+                referenced_tweets = tweet.get("referenced_tweets", [])
+                if len(referenced_tweets):
+                    last_tweet_id = referenced_tweets[0].get("id", None)
+                    tweet_info = twitter.tweet(tweet_id=last_tweet_id)
+                    twitter.API_RPS["TWEET"].append(datetime.now())
+                    twitter.start_time = (datetime.strptime(tweet_info["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"))
+                    twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+        elif INITIAL_TWEET == INITIAL_TWEET_OPTIONS.get(1):
+            twitter.start_time = datetime.now() - timedelta(days=DAYS_BEFORE_NOW)
+            twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+    elif WORK_MODE == WORK_MODES.get(2):
+        twitter.start_time = datetime.utcnow() - timedelta(minutes=30)
+        twitter.end_time = datetime.utcnow() - timedelta(minutes=1)
+
+
+def fetch_messages(twitter):
+    if WORK_MODE == WORK_MODES.get(2):
+        if twitter.last_fetched is not None and \
+                twitter.last_fetched + timedelta(minutes=WORKER_TIMEOUT) > datetime.now():
+            return []
+        else:
+            twitter.start_time = datetime.utcnow() - timedelta(minutes=30)
+            twitter.end_time = datetime.utcnow() - timedelta(minutes=1)
+
+    response = twitter.search_tweets(start_time=twitter.start_time, end_time=twitter.end_time)
+    twitter.last_fetched = datetime.now()
+
+    error_locator = "\'start_time\' must be on or after "
+    if response.status_code in [400] and error_locator in response.text:
+        twitter.start_time = datetime.strptime(response.text.split(error_locator)[1].split("Z")[0] + ":59Z",
+                                               "%Y-%m-%dT%H:%M:%SZ") + timedelta(minutes=10)
+        twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+        response = twitter.search_tweets(start_time=twitter.start_time, end_time=twitter.end_time)
+
+    if response.json().get("meta", {}).get("next_token"):
+        twitter.next_token = response.json().get("meta", {}).get("next_token")
+    else:
+        twitter.next_token = None
+        twitter.start_time = twitter.end_time
+        twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+
+    messages = response.json().get("data", [])
+    messages_filtered = filter(lambda x: not x["text"].startswith("RT @"), messages)
+    return messages_filtered
+
+
+def queue_requests(twitter, messages):
     for message in messages:
-        replied = twitter.reply(message)
-        if replied == SLOW_DOWN:
-            time_to_sleep = 1
-            while replied == SLOW_DOWN:
-                print(f"Slowing down. Waiting for {time_to_sleep}")
-                sleep(time_to_sleep)
-                time_to_sleep *= 2
-                replied = twitter.reply(message)
-        handle_printing_request_details(response=replied, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
+        if (not message["id"] in twitter.tweet_processed) and \
+                (not message["id"] in [i.message["id"] for i in twitter.requests_queue]):
+            twitter.queue_reply(message)
+            twitter.queue_like(message)
+            twitter.queue_quote(message)
 
-        liked = twitter.like(message)
-        if liked == SLOW_DOWN:
-            time_to_sleep = REST_START_TIMEOUT
-            while liked == SLOW_DOWN:
-                print(f"Slowing down. Waiting for {time_to_sleep}")
-                sleep(time_to_sleep)
-                time_to_sleep *= 2
-                liked = twitter.like(message)
-        handle_printing_request_details(response=liked, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
 
-        quoted = twitter.quote(message)
-        if quoted == SLOW_DOWN:
-            time_to_sleep = 5
-            while quoted == SLOW_DOWN:
-                print(f"Slowing down. Waiting for {time_to_sleep}")
-                sleep(time_to_sleep)
-                time_to_sleep *= 2
-                quoted = twitter.quote(message)
-        handle_printing_request_details(response=quoted, message=message, text_to_reply=TEXT_TO_REPLY, method="reply")
+def is_request_allowed(twitter, request):
+    allowed = False
+    if request.method_name == "like":
+        allowed = twitter.ready_to_like
+    elif request.method_name in ["quote", "reply"]:
+        allowed = twitter.ready_to_reply
+    return allowed
 
-        sleep(WORKER_TIMEOUT)
+
+def is_any_request_allowed(twitter):
+    return twitter.ready_to_like or twitter.ready_to_reply
+
+
+def process_queue(twitter):
+    # chunked, twitter.requests_queue = twitter.requests_queue[:10], twitter.requests_queue[10:]
+    if is_any_request_allowed(twitter):
+        for request in twitter.requests_queue:
+            if (request.method_name == "like" and twitter.ready_to_like) or \
+                    (request.method_name in ["quote", "reply"] and twitter.ready_to_reply):
+                response = request.http_method(url=request.url, json=request.json, auth=request.auth,
+                                               headers=request.headers, params=request.params)
+                if request.message["id"] not in twitter.tweet_processed:
+                    twitter.tweet_processed.append(request.message["id"])
+                request_fail = request_failed(response)
+                handle_printing_request_details(response=request_fail, message=request.message,
+                                                text_to_reply=TEXT_TO_REPLY,
+                                                method=request.method_name)
+                twitter.requests_queue.remove(request)
+                request.time_sent = datetime.now()
+                twitter.requests_sent.append(request)
+                if not request_fail:
+                    if request.method_name == "like":
+                        twitter.last_like_sent = datetime.now()
+                    elif request.method_name in ["quote", "reply"]:
+                        twitter.last_reply_sent = datetime.now()
+                    break
