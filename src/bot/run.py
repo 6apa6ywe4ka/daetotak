@@ -90,7 +90,6 @@ def process_queue(twitter):
                     twitter.tweet_processed.append(request.message["id"])
                 request_fail = request_failed(response)
                 handle_printing_request_details(response=request_fail, message=request.message,
-                                                text_to_reply=TEXT_TO_REPLY,
                                                 method=request.method_name)
                 twitter.requests_queue.remove(request)
                 request.time_sent = datetime.now()

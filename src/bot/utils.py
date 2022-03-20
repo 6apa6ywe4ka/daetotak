@@ -1,17 +1,19 @@
+from datetime import datetime
+
 from src.config.config import DUPLICATE, SLOW_DOWN, TWEET_URL
 
 
-def handle_printing_request_details(response, message, text_to_reply, method):
+def handle_printing_request_details(response, message, method):
     tweet_url = TWEET_URL.format(message_id=message['id'])
-
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
     if not response:
-        print(f"Successful {method} to {tweet_url}: {text_to_reply}")
+        print(f"{timestamp} OK {method} to {tweet_url}")
     elif response == SLOW_DOWN:
-        print(f"Too many requests {method} {tweet_url}: {text_to_reply}")
+        print(f"{timestamp} ERROR Too many requests {method} {tweet_url}")
     elif response == DUPLICATE:
-        print(f"Duplicate {method} to : {tweet_url}: {text_to_reply}")
+        print(f"{timestamp} ERROR Duplicate {method} to : {tweet_url}")
     else:
-        print(f"Error {method} : {tweet_url}: {text_to_reply}")
+        print(f"{timestamp} ERROR {method} : {tweet_url}")
 
 
 def request_failed(response):
