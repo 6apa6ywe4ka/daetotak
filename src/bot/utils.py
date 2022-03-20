@@ -7,7 +7,7 @@ def handle_printing_request_details(response, message, method):
     tweet_url = TWEET_URL.format(message_id=message['id'])
     timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
     if not response:
-        print(f"{timestamp} OK {method} to {tweet_url}")
+        print(f"{timestamp} OK               {method} to : {tweet_url}")
     elif response == SLOW_DOWN:
         print(f"{timestamp} ERROR Too many requests {method} {tweet_url}")
     elif response == DUPLICATE:
