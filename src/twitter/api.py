@@ -8,7 +8,7 @@ from src.bot.utils import request_failed
 from src.config.config import TWITTER_URL, SEARCH_TWEETS_ENDPOINT, TEXT_TO_FIND, LIKE_TWEET_ENDPOINT, \
     REPLY_TWEET_ENDPOINT, QUOTE_TWEET_ENDPOINT, TEXT_TO_REPLY, \
     FAVORITES_ENDPOINT, ME_ENDPOINT, TWEETS_ENDPOINT, TWEET_ENDPOINT, \
-    LIKE_TIMEDELTA, QUOTE_TIMEDELTA, REPLY_TIMEDELTA, LIKE_SECONDS_TIMEOUT
+    LIKE_TIMEDELTA, QUOTE_TIMEDELTA, REPLY_TIMEDELTA, LIKE_SECONDS_TIMEOUT, REPLY_SECONDS_TIMEOUT
 from src.config.secret import OUATH_CONSUMER_SECRET, OAUTH_SERVER_KEY, OAUTH_SERVER_SECRET, BEARER_TOKEN, \
     OAUTH_CONSUMER_KEY
 
@@ -68,7 +68,7 @@ class TwitterAPI(object):
     def ready_to_reply(self):
         if self.last_reply_sent is None:
             return True
-        return self.last_reply_sent + timedelta(seconds=LIKE_SECONDS_TIMEOUT) < datetime.now()
+        return self.last_reply_sent + timedelta(seconds=REPLY_SECONDS_TIMEOUT) < datetime.now()
 
     def __init__(self):
         self.set_oauth_v1_token()
