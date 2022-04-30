@@ -15,4 +15,3 @@ while True and BEARER_TOKEN:
         queue_requests(twitter=twitter, messages=messages)
     process_queue(twitter)
     sleep(1)
-

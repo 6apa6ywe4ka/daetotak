@@ -15,11 +15,16 @@ def init_bot(twitter):
                     last_tweet_id = referenced_tweets[0].get("id", None)
                     tweet_info = twitter.tweet(tweet_id=last_tweet_id)
                     twitter.API_RPS["TWEET"].append(datetime.now())
-                    twitter.start_time = (datetime.strptime(tweet_info["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"))
-                    twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+                    twitter.start_time = (
+                        datetime.strptime(
+                            tweet_info["created_at"],
+                            "%Y-%m-%dT%H:%M:%S.%fZ"))
+                    twitter.end_time = twitter.start_time + \
+                        timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
         elif INITIAL_TWEET == INITIAL_TWEET_OPTIONS.get(1):
             twitter.start_time = datetime.now() - timedelta(days=DAYS_BEFORE_NOW)
-            twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+            twitter.end_time = twitter.start_time + \
+                timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
     elif WORK_MODE == WORK_MODES.get(2):
         twitter.start_time = datetime.utcnow() - timedelta(minutes=30)
         twitter.end_time = datetime.utcnow() - timedelta(minutes=1)
@@ -27,39 +32,46 @@ def init_bot(twitter):
 
 def fetch_messages(twitter):
     if WORK_MODE == WORK_MODES.get(2):
-        if twitter.last_fetched is not None and \
-                twitter.last_fetched + timedelta(minutes=WORKER_TIMEOUT) > datetime.now():
+        if twitter.last_fetched is not None and twitter.last_fetched + \
+                timedelta(minutes=WORKER_TIMEOUT) > datetime.now():
             return []
         else:
             twitter.start_time = datetime.utcnow() - timedelta(minutes=30)
             twitter.end_time = datetime.utcnow() - timedelta(minutes=1)
 
-    response = twitter.search_tweets(start_time=twitter.start_time, end_time=twitter.end_time)
+    response = twitter.search_tweets(
+        start_time=twitter.start_time,
+        end_time=twitter.end_time)
     twitter.last_fetched = datetime.now()
 
     error_locator = "\'start_time\' must be on or after "
     if response.status_code in [400] and error_locator in response.text:
-        twitter.start_time = datetime.strptime(response.text.split(error_locator)[1].split("Z")[0] + ":59Z",
-                                               "%Y-%m-%dT%H:%M:%SZ") + timedelta(minutes=10)
-        twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
-        response = twitter.search_tweets(start_time=twitter.start_time, end_time=twitter.end_time)
+        twitter.start_time = datetime.strptime(response.text.split(error_locator)[1].split(
+            "Z")[0] + ":59Z", "%Y-%m-%dT%H:%M:%SZ") + timedelta(minutes=10)
+        twitter.end_time = twitter.start_time + \
+            timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+        response = twitter.search_tweets(
+            start_time=twitter.start_time,
+            end_time=twitter.end_time)
 
     if response.json().get("meta", {}).get("next_token"):
         twitter.next_token = response.json().get("meta", {}).get("next_token")
     else:
         twitter.next_token = None
         twitter.start_time = twitter.end_time
-        twitter.end_time = twitter.start_time + timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
+        twitter.end_time = twitter.start_time + \
+            timedelta(hours=INTERVAL_TO_SEARCH_HOURS)
 
     messages = response.json().get("data", [])
-    messages_filtered = filter(lambda x: not x["text"].startswith("RT @"), messages)
+    messages_filtered = filter(
+        lambda x: not x["text"].startswith("RT @"), messages)
     return messages_filtered
 
 
 def queue_requests(twitter, messages):
     for message in messages:
-        if (not message["id"] in twitter.tweet_processed) and \
-                (not message["id"] in [i.message["id"] for i in twitter.requests_queue]):
+        if (not message["id"] in twitter.tweet_processed) and (
+                not message["id"] in [i.message["id"] for i in twitter.requests_queue]):
             twitter.queue_reply(message)
             twitter.queue_like(message)
             twitter.queue_quote(message)
@@ -82,15 +94,21 @@ def process_queue(twitter):
     # chunked, twitter.requests_queue = twitter.requests_queue[:10], twitter.requests_queue[10:]
     if is_any_request_allowed(twitter):
         for request in twitter.requests_queue:
-            if (request.method_name == "like" and twitter.ready_to_like) or \
-                    (request.method_name in ["quote", "reply"] and twitter.ready_to_reply):
-                response = request.http_method(url=request.url, json=request.json, auth=request.auth,
-                                               headers=request.headers, params=request.params)
+            if (request.method_name == "like" and twitter.ready_to_like) or (
+                    request.method_name in ["quote", "reply"] and twitter.ready_to_reply):
+                response = request.http_method(
+                    url=request.url,
+                    json=request.json,
+                    auth=request.auth,
+                    headers=request.headers,
+                    params=request.params)
                 if request.message["id"] not in twitter.tweet_processed:
                     twitter.tweet_processed.append(request.message["id"])
                 request_fail = request_failed(response)
-                handle_printing_request_details(response=request_fail, message=request.message,
-                                                method=request.method_name)
+                handle_printing_request_details(
+                    response=request_fail,
+                    message=request.message,
+                    method=request.method_name)
                 twitter.requests_queue.remove(request)
                 request.time_sent = datetime.now()
                 twitter.requests_sent.append(request)

@@ -24,8 +24,17 @@ class Request:
     message = None
     method_name = None
 
-    def __init__(self, method, url, headers=None, auth=None, params=None, json=None, time_to_send=None, message=None,
-                 method_name=None):
+    def __init__(
+            self,
+            method,
+            url,
+            headers=None,
+            auth=None,
+            params=None,
+            json=None,
+            time_to_send=None,
+            message=None,
+            method_name=None):
         self.http_method = method
         self.method_name = method_name
         self.url = url
@@ -62,13 +71,15 @@ class TwitterAPI(object):
     def ready_to_like(self):
         if self.last_like_sent is None:
             return True
-        return self.last_like_sent + timedelta(seconds=LIKE_SECONDS_TIMEOUT) < datetime.now()
+        return self.last_like_sent + \
+            timedelta(seconds=LIKE_SECONDS_TIMEOUT) < datetime.now()
 
     @property
     def ready_to_reply(self):
         if self.last_reply_sent is None:
             return True
-        return self.last_reply_sent + timedelta(seconds=REPLY_SECONDS_TIMEOUT) < datetime.now()
+        return self.last_reply_sent + \
+            timedelta(seconds=REPLY_SECONDS_TIMEOUT) < datetime.now()
 
     def __init__(self):
         self.set_oauth_v1_token()
@@ -82,7 +93,14 @@ class TwitterAPI(object):
         self.user_id = self.oauth.client.resource_owner_key.split('-')[0]
         return self.oauth
 
-    def queue_request(self, method, url, headers=None, auth=None, params=None, json=None):
+    def queue_request(
+            self,
+            method,
+            url,
+            headers=None,
+            auth=None,
+            params=None,
+            json=None):
         self.requests_queue.append(Request(method=method,
                                            url=url,
                                            headers=headers,
@@ -90,8 +108,16 @@ class TwitterAPI(object):
                                            params=params,
                                            json=json))
 
-    def queue_GET_request(self, url, method_name, headers=None, auth=None, params=None, json=None, time_to_send=None,
-                          message=None):
+    def queue_GET_request(
+            self,
+            url,
+            method_name,
+            headers=None,
+            auth=None,
+            params=None,
+            json=None,
+            time_to_send=None,
+            message=None):
         self.requests_queue.append(Request(method=requests.get,
                                            url=url,
                                            headers=headers,
@@ -102,8 +128,16 @@ class TwitterAPI(object):
                                            message=message,
                                            method_name=method_name))
 
-    def queue_POST_request(self, url, method_name, headers=None, auth=None, params=None, json=None, time_to_send=None,
-                           message=None):
+    def queue_POST_request(
+            self,
+            url,
+            method_name,
+            headers=None,
+            auth=None,
+            params=None,
+            json=None,
+            time_to_send=None,
+            message=None):
         self.requests_queue.append(Request(method=requests.post,
                                            url=url,
                                            headers=headers,
@@ -114,8 +148,16 @@ class TwitterAPI(object):
                                            message=message,
                                            method_name=method_name))
 
-    def queue_PUT_request(self, url, method_name, headers=None, auth=None, params=None, json=None, time_to_send=None,
-                          message=None):
+    def queue_PUT_request(
+            self,
+            url,
+            method_name,
+            headers=None,
+            auth=None,
+            params=None,
+            json=None,
+            time_to_send=None,
+            message=None):
         self.requests_queue.append(Request(method=requests.put,
                                            url=url,
                                            headers=headers,
@@ -143,8 +185,13 @@ class TwitterAPI(object):
         return response.json()["data"]
 
     def last_tweets(self):
-        url = urljoin(TWITTER_URL, TWEETS_ENDPOINT.format(user_id=self.user_id))
-        params = {"tweet.fields": "author_id,created_at", "expansions": "referenced_tweets.id"}
+        url = urljoin(
+            TWITTER_URL,
+            TWEETS_ENDPOINT.format(
+                user_id=self.user_id))
+        params = {
+            "tweet.fields": "author_id,created_at",
+            "expansions": "referenced_tweets.id"}
         response = requests.get(url=url, auth=self.oauth, params=params)
         self.API_RPS.setdefault(self.last_tweets.__name__, [])
         self.API_RPS[self.last_tweets.__name__].append(datetime.now())
@@ -165,9 +212,11 @@ class TwitterAPI(object):
                   "tweet.fields": "author_id,created_at",
                   "user.fields": "username"}
         if start_time is not None:
-            params.update({"start_time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ")})
+            params.update(
+                {"start_time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ")})
         if end_time is not None:
-            params.update({"end_time": end_time.strftime("%Y-%m-%dT%H:%M:%SZ")})
+            params.update(
+                {"end_time": end_time.strftime("%Y-%m-%dT%H:%M:%SZ")})
         if self.next_token is not None:
             params.update({"next_token": self.next_token})
         response = requests.get(url=url, headers=self.headers, params=params)
@@ -190,8 +239,13 @@ class TwitterAPI(object):
         data = {"reply": {"in_reply_to_tweet_id": message["id"]},
                 "text": TEXT_TO_REPLY}
         time_to_send = datetime.now() + timedelta(seconds=REPLY_TIMEDELTA)
-        self.queue_POST_request(url=url, json=data, auth=self.oauth, time_to_send=time_to_send, message=message,
-                                method_name="reply")
+        self.queue_POST_request(
+            url=url,
+            json=data,
+            auth=self.oauth,
+            time_to_send=time_to_send,
+            message=message,
+            method_name="reply")
 
     def quote(self, message):
         url = urljoin(TWITTER_URL, QUOTE_TWEET_ENDPOINT.format(message))
@@ -207,12 +261,17 @@ class TwitterAPI(object):
         data = {"quote_tweet_id": message["id"],
                 "text": TEXT_TO_REPLY}
         time_to_send = datetime.now() + timedelta(seconds=QUOTE_TIMEDELTA)
-        self.queue_POST_request(url=url, json=data, auth=self.oauth, time_to_send=time_to_send, message=message,
-                                method_name="quote")
+        self.queue_POST_request(
+            url=url,
+            json=data,
+            auth=self.oauth,
+            time_to_send=time_to_send,
+            message=message,
+            method_name="quote")
 
     def like(self, message):
-        url = urljoin(TWITTER_URL,
-                      LIKE_TWEET_ENDPOINT.format(partition=self.oauth.client.resource_owner_key.split('-')[0]))
+        url = urljoin(TWITTER_URL, LIKE_TWEET_ENDPOINT.format(
+            partition=self.oauth.client.resource_owner_key.split('-')[0]))
         data = {"tweet_id": message["id"]}
         response = requests.post(url=url, json=data, auth=self.oauth)
         self.API_RPS.setdefault(self.like.__name__, [])
@@ -220,9 +279,14 @@ class TwitterAPI(object):
         return request_failed(response=response)
 
     def queue_like(self, message):
-        url = urljoin(TWITTER_URL,
-                      LIKE_TWEET_ENDPOINT.format(partition=self.oauth.client.resource_owner_key.split('-')[0]))
+        url = urljoin(TWITTER_URL, LIKE_TWEET_ENDPOINT.format(
+            partition=self.oauth.client.resource_owner_key.split('-')[0]))
         data = {"tweet_id": message["id"]}
         time_to_send = datetime.now() + timedelta(seconds=LIKE_TIMEDELTA)
-        self.queue_POST_request(url=url, json=data, auth=self.oauth, time_to_send=time_to_send, message=message,
-                                method_name="like")
+        self.queue_POST_request(
+            url=url,
+            json=data,
+            auth=self.oauth,
+            time_to_send=time_to_send,
+            message=message,
+            method_name="like")

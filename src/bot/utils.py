@@ -17,10 +17,9 @@ def handle_printing_request_details(response, message, method):
 
 
 def request_failed(response):
-    if response.status_code in [403] and \
-            response.json().get("detail", "") == "You are not allowed to create a Tweet with duplicate content.":
+    if response.status_code in [403] and response.json().get(
+            "detail", "") == "You are not allowed to create a Tweet with duplicate content.":
         return DUPLICATE
     if response.status_code in [429]:
         return SLOW_DOWN
     return response.status_code not in [200, 201]
-
