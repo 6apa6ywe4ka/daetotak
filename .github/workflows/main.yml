@@ -7,4 +7,4 @@ jobs:
     steps:
       - name: Flake8 step
         id: flake8
-        uses: oleksandr-draha/flake8_github_action@flake8
+        uses: oleksandr-draha/flake8_github_action@v0
