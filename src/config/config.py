@@ -1,8 +1,8 @@
 API_KEY = ""
 API_SECRET_KEY = ""
 
-TEXT_TO_FIND = "русні пизда"
-TEXT_TO_REPLY = "да ето так"
+TEXT_TO_FIND = ""
+TEXT_TO_REPLY = ""
 
 WORKER_TIMEOUT = 1
 REST_START_TIMEOUT = 2
